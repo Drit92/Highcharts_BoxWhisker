@@ -1,0 +1,137 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <title>Car Weights Box and Whisker Plot</title>
+
+    <!-- Load jQuery -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+    
+    <!-- Load Highcharts and modules -->
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/highcharts-more.js"></script>  <!-- needed for boxplot -->
+    <script src="https://code.highcharts.com/modules/boxplot.js"></script>
+    <script src="https://code.highcharts.com/modules/data.js"></script>
+    
+    <!-- Include PapaParse for CSV parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+</head>
+<body>
+    <div id="container" style="width: 100%; height: 400px;"></div>
+
+    <script>
+    var url = 'https://raw.githubusercontent.com/Drit92/Higcharts_interactive_chart/main/auto-mpg.csv';
+
+    Papa.parse(url, {
+        download: true,
+        header: true,
+        dynamicTyping: true,
+        complete: function(results) {
+            var data = results.data.filter(function(row) {
+                return row['model year'] != null && !isNaN(row['weight']);
+            });
+
+            // Group weights by model year
+            var groups = {};
+            data.forEach(function(d) {
+                if (!groups[d['model year']]) groups[d['model year']] = [];
+                groups[d['model year']].push(d['weight']);
+            });
+
+            // Function to calculate quartiles and five-number summary
+            function getBoxPlotData(arr) {
+                arr.sort(function(a, b) { return a - b; });
+                var min = arr[0];
+                var max = arr[arr.length - 1];
+                var median = getMedian(arr);
+                var q1 = getMedian(arr.slice(0, Math.floor(arr.length / 2)));
+                var q3 = getMedian(arr.slice(Math.ceil(arr.length / 2)));
+                return [min, q1, median, q3, max];
+            }
+
+            function getMedian(arr) {
+                var mid = Math.floor(arr.length / 2);
+                if (arr.length % 2 === 0) {
+                    return (arr[mid - 1] + arr[mid]) / 2;
+                }
+                return arr[mid];
+            }
+
+            // Prepare data arrays for boxplot categories and series data
+            var categories = [];
+            var boxData = [];
+            var outliers = [];
+
+            Object.keys(groups).sort().forEach(function(year, i) {
+                var weights = groups[year];
+                var sortedWeights = weights.slice().sort(function(a,b){return a-b;});
+                var fiveNum = getBoxPlotData(weights);
+
+                // Calculate outliers using 1.5*IQR rule
+                var q1 = fiveNum[1], q3 = fiveNum[3], iqr = q3 - q1;
+                var lowerFence = q1 - 1.5 * iqr;
+                var upperFence = q3 + 1.5 * iqr;
+
+                // Filter outliers, map to series format [x index, value]
+                weights.forEach(function(w) {
+                    if (w < lowerFence || w > upperFence) {
+                        outliers.push([i, w]);
+                    }
+                });
+
+                categories.push(year);
+                boxData.push(fiveNum);
+            });
+
+            Highcharts.chart('container', {
+                chart: {
+                    type: 'boxplot'
+                },
+                title: {
+                    text: 'Box and Whisker Plot of Car Weights by Model Year'
+                },
+                legend: {
+                    enabled: false
+                },
+                xAxis: {
+                    categories: categories,
+                    title: {
+                        text: 'Model Year'
+                    }
+                },
+                yAxis: {
+                    title: {
+                        text: 'Weight'
+                    }
+                },
+                series: [{
+                    name: 'Observations',
+                    data: boxData,
+                    tooltip: {
+                        headerFormat: '<em>Model Year {point.key}</em><br/>'
+                    }
+                }, {
+                    name: 'Outliers',
+                    color: Highcharts.getOptions().colors[0],
+                    type: 'scatter',
+                    data: outliers,
+                    marker: {
+                        fillColor: 'white',
+                        lineWidth: 1,
+                        lineColor: Highcharts.getOptions().colors[0],
+                        symbol: 'circle',
+                        radius: 4
+                    },
+                    tooltip: {
+                        pointFormat: 'Outlier: {point.y}'
+                    }
+                }]
+            });
+        },
+        error: function(err) {
+            console.error('Error loading or parsing CSV:', err);
+        }
+    });
+    </script>
+</body>
+</html>
