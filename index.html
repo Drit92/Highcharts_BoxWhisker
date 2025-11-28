@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8" />
-    <title>Car Weights Box and Whisker Plot Colored by Year</title>
+    <title>Car Weights Box and Whisker Plot - Colored by Year</title>
 
     <!-- Load jQuery -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
@@ -38,101 +38,66 @@
                 groups[d['model year']].push(d['weight']);
             });
 
-            // Function to calculate quartiles and five-number summary
+            // Function to calculate box plot data
             function getBoxPlotData(arr) {
-                arr.sort(function(a, b) { return a - b; });
-                var min = arr[0];
-                var max = arr[arr.length - 1];
-                var median = getMedian(arr);
-                var q1 = getMedian(arr.slice(0, Math.floor(arr.length / 2)));
-                var q3 = getMedian(arr.slice(Math.ceil(arr.length / 2)));
+                var sorted = arr.slice().sort(function(a, b) { return a - b; });
+                var min = sorted[0];
+                var max = sorted[sorted.length - 1];
+                var median = getMedian(sorted);
+                var q1 = getMedian(sorted.slice(0, Math.floor(sorted.length / 2)));
+                var q3 = getMedian(sorted.slice(Math.ceil(sorted.length / 2)));
                 return [min, q1, median, q3, max];
             }
 
             function getMedian(arr) {
                 var mid = Math.floor(arr.length / 2);
-                if (arr.length % 2 === 0) {
-                    return (arr[mid - 1] + arr[mid]) / 2;
-                }
-                return arr[mid];
+                return arr.length % 2 === 0 ? (arr[mid - 1] + arr[mid]) / 2 : arr[mid];
             }
 
-            var categories = [];
-            var boxData = [];
-            var outliers = [];
+            // Prepare categories and series
+            var categories = Object.keys(groups).sort();
+            var series = [];
+            var allOutliers = [];
 
-            // Use Highcharts default colors or define custom palette
-            var HCcolors = Highcharts.getOptions().colors;
-
-            Object.keys(groups).sort().forEach(function(year, i) {
+            categories.forEach(function(year, i) {
                 var weights = groups[year];
                 var fiveNum = getBoxPlotData(weights);
-
-                // Outliers calculation
+                
+                // Calculate outliers
                 var q1 = fiveNum[1], q3 = fiveNum[3], iqr = q3 - q1;
                 var lowerFence = q1 - 1.5 * iqr;
                 var upperFence = q3 + 1.5 * iqr;
+                
+                var outliers = weights.filter(w => w < lowerFence || w > upperFence).map(w => [i, w]);
+                allOutliers = allOutliers.concat(outliers);
 
-                weights.forEach(function(w) {
-                    if (w < lowerFence || w > upperFence) {
-                        outliers.push([i, w]);
-                    }
-                });
-
-                categories.push(year);
-                // Assign color for each box based on index cycling through palette
-                boxData.push({
-                    low: fiveNum[0],
-                    q1: fiveNum[1],
-                    median: fiveNum[2],
-                    q3: fiveNum[3],
-                    high: fiveNum[4],
-                    color: HCcolors[i % HCcolors.length]
+                series.push({
+                    name: year.toString(),
+                    data: [fiveNum],
+                    color: Highcharts.getOptions().colors[i % Highcharts.getOptions().colors.length]
                 });
             });
 
             Highcharts.chart('container', {
-                chart: {
-                    type: 'boxplot'
-                },
-                title: {
-                    text: 'Box and Whisker Plot of Car Weights by Model Year (Colored)'
-                },
-                legend: {
-                    enabled: false
-                },
+                chart: { type: 'boxplot' },
+                title: { text: 'Box and Whisker Plot: Car Weight by Model Year' },
                 xAxis: {
                     categories: categories,
-                    title: {
-                        text: 'Model Year'
-                    }
+                    title: { text: 'Model Year' }
                 },
-                yAxis: {
-                    title: {
-                        text: 'Weight'
-                    }
-                },
-                series: [{
-                    name: 'Car Weights',
-                    data: boxData,
-                    colorByPoint: true // enable coloring by individual point color property
-                }, {
+                yAxis: { title: { text: 'Weight' } },
+                legend: { enabled: true },
+                series: series.concat([{
                     name: 'Outliers',
-                    color: Highcharts.getOptions().colors[0],
                     type: 'scatter',
-                    data: outliers,
-                    marker: {
-                        fillColor: 'white',
-                        lineWidth: 1,
-                        lineColor: Highcharts.getOptions().colors[0],
-                        symbol: 'circle',
-                        radius: 4
-                    },
-                    tooltip: {
-                        pointFormat: 'Outlier: {point.y}'
-                    }
-                }]
+                    data: allOutliers,
+                    color: '#FF0000',
+                    marker: { fillColor: 'white', lineWidth: 2, lineColor: '#FF0000', radius: 5 }
+                }])
             });
+        },
+        error: function(err) {
+            console.error('Error loading CSV:', err);
         }
     });
     </script>
