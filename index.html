@@ -2,14 +2,14 @@
 <html>
 <head>
     <meta charset="UTF-8" />
-    <title>Car Weights Box and Whisker Plot</title>
+    <title>Car Weights Box and Whisker Plot Colored by Year</title>
 
     <!-- Load jQuery -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
     
     <!-- Load Highcharts and modules -->
     <script src="https://code.highcharts.com/highcharts.js"></script>
-    <script src="https://code.highcharts.com/highcharts-more.js"></script>  <!-- needed for boxplot -->
+    <script src="https://code.highcharts.com/highcharts-more.js"></script>
     <script src="https://code.highcharts.com/modules/boxplot.js"></script>
     <script src="https://code.highcharts.com/modules/data.js"></script>
     
@@ -57,22 +57,22 @@
                 return arr[mid];
             }
 
-            // Prepare data arrays for boxplot categories and series data
             var categories = [];
             var boxData = [];
             var outliers = [];
 
+            // Use Highcharts default colors or define custom palette
+            var HCcolors = Highcharts.getOptions().colors;
+
             Object.keys(groups).sort().forEach(function(year, i) {
                 var weights = groups[year];
-                var sortedWeights = weights.slice().sort(function(a,b){return a-b;});
                 var fiveNum = getBoxPlotData(weights);
 
-                // Calculate outliers using 1.5*IQR rule
+                // Outliers calculation
                 var q1 = fiveNum[1], q3 = fiveNum[3], iqr = q3 - q1;
                 var lowerFence = q1 - 1.5 * iqr;
                 var upperFence = q3 + 1.5 * iqr;
 
-                // Filter outliers, map to series format [x index, value]
                 weights.forEach(function(w) {
                     if (w < lowerFence || w > upperFence) {
                         outliers.push([i, w]);
@@ -80,7 +80,15 @@
                 });
 
                 categories.push(year);
-                boxData.push(fiveNum);
+                // Assign color for each box based on index cycling through palette
+                boxData.push({
+                    low: fiveNum[0],
+                    q1: fiveNum[1],
+                    median: fiveNum[2],
+                    q3: fiveNum[3],
+                    high: fiveNum[4],
+                    color: HCcolors[i % HCcolors.length]
+                });
             });
 
             Highcharts.chart('container', {
@@ -88,7 +96,7 @@
                     type: 'boxplot'
                 },
                 title: {
-                    text: 'Box and Whisker Plot of Car Weights by Model Year'
+                    text: 'Box and Whisker Plot of Car Weights by Model Year (Colored)'
                 },
                 legend: {
                     enabled: false
@@ -105,11 +113,9 @@
                     }
                 },
                 series: [{
-                    name: 'Observations',
+                    name: 'Car Weights',
                     data: boxData,
-                    tooltip: {
-                        headerFormat: '<em>Model Year {point.key}</em><br/>'
-                    }
+                    colorByPoint: true // enable coloring by individual point color property
                 }, {
                     name: 'Outliers',
                     color: Highcharts.getOptions().colors[0],
@@ -127,9 +133,6 @@
                     }
                 }]
             });
-        },
-        error: function(err) {
-            console.error('Error loading or parsing CSV:', err);
         }
     });
     </script>
